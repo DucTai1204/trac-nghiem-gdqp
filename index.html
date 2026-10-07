@@ -75,6 +75,11 @@ select{font:inherit;font-size:14.5px;padding:7px 10px;border-radius:10px;border:
 .lesson .meta{font-size:13px;color:var(--muted);margin-top:2px}
 .lesson .go{color:var(--muted);flex:none}
 .lesson.all .num{background:var(--brand);color:#fff}
+.bankcard{padding:18px 14px}
+.bankcard .num{width:52px;height:52px;font-size:15px;background:var(--brand);color:#fff}
+:root[data-theme="dark"] .bankcard .num{color:#0d1a13}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .bankcard .num{color:#0d1a13}}
+.bankcard .name{font-size:16.5px}
 .seg.bank{margin-top:8px;background:var(--card)}
 .seg.bank button{font-size:14px;padding:10px 6px;line-height:1.3}
 .seg.bank button.on{background:var(--brand);color:#fff}
@@ -166,11 +171,24 @@ details.navd[open] summary{border-bottom:1px solid var(--line)}
 
 <main class="wrap">
   <!-- HOME -->
-  <section id="home">
-    <div class="seg bank" id="bankSeg" role="tablist" aria-label="Chọn bộ đề">
-      <button data-bank="hp2" class="on">Ôn tập HP2</button>
-      <button data-bank="ct">Kiểm tra chính trị HP2</button>
+  <section id="pick" class="hidden">
+    <h1 style="margin-top:14px">Bạn muốn học phần nào?</h1>
+    <div class="muted">Chọn một bộ đề để bắt đầu. Có thể đổi lại bất cứ lúc nào.</div>
+    <div class="lessons" style="margin-top:16px">
+      <button class="lesson bankcard" data-bank="hp2">
+        <div class="num">HP2</div>
+        <div class="info"><div class="name">Ôn tập GDQP Học phần II (2022)</div><div class="meta" data-meta="hp2"></div></div>
+        <div class="go">›</div>
+      </button>
+      <button class="lesson bankcard" data-bank="ct">
+        <div class="num">CT</div>
+        <div class="info"><div class="name">Ôn kiểm tra chính trị HP2 (Đại học)</div><div class="meta" data-meta="ct"></div></div>
+        <div class="go">›</div>
+      </button>
     </div>
+  </section>
+
+  <section id="home">
     <div class="card hero">
       <h1 id="homeTitle">Câu hỏi ôn tập GDQP Học phần II</h1>
       <div class="muted" id="homeDesc">Chọn bài để luyện tập, hoặc thi thử ngẫu nhiên từ toàn bộ ngân hàng câu hỏi.</div>
@@ -328,13 +346,19 @@ details.navd[open] summary{border-bottom:1px solid var(--line)}
   };
   let bankKey = BANKS[store.get('bank','hp2')] ? store.get('bank','hp2') : 'hp2';
   const bank = () => BANKS[bankKey];
-  document.querySelectorAll('#bankSeg button').forEach(b => b.onclick = () => {
-    bankKey = b.dataset.bank; store.set('bank', bankKey); renderHome();
+  function renderPick(){
+    Object.keys(BANKS).forEach(k => {
+      const B = BANKS[k], n = B.data.reduce((s,l)=>s+l.questions.length,0);
+      const done = Object.keys(store.get(B.best, {})).length;
+      $('[data-meta="'+k+'"]').textContent = n+' câu · '+B.data.length+' bài'+(done ? ' · đã làm '+done+' lượt bài' : '');
+    });
+  }
+  document.querySelectorAll('.bankcard').forEach(b => b.onclick = () => {
+    bankKey = b.dataset.bank; store.set('bank', bankKey); show('home'); window.scrollTo(0,0);
   });
   function renderHome(){
     const B = bank(), QUIZ_DATA = B.data;
     const total = QUIZ_DATA.reduce((s,l)=>s+l.questions.length,0);
-    document.querySelectorAll('#bankSeg button').forEach(b => b.classList.toggle('on', b.dataset.bank===bankKey));
     $('#homeTitle').textContent = B.title; $('#homeDesc').textContent = B.desc;
     $('#homeFoot').textContent = B.foot; $('#subttl').textContent = B.sub;
     const best = store.get(B.best, {});
@@ -513,16 +537,18 @@ details.navd[open] summary{border-bottom:1px solid var(--line)}
 
   // ----- navigation
   function show(view){
-    ['home','quiz','result'].forEach(v => $('#'+v).classList.toggle('hidden', v!==view));
+    ['pick','home','quiz','result'].forEach(v => $('#'+v).classList.toggle('hidden', v!==view));
     $('#quizNav').classList.toggle('hidden', view!=='quiz');
     $('#resultNav').classList.toggle('hidden', view!=='result');
-    $('#homeBtn').classList.toggle('hidden', view==='home');
-    $('#homeBtn').textContent = view==='quiz' ? '✕ Thoát' : '⌂ Trang chủ';
+    $('#homeBtn').classList.toggle('hidden', view==='pick');
+    $('#homeBtn').textContent = view==='quiz' ? '✕ Thoát' : view==='home' ? '⇄ Đổi bộ đề' : '⌂ Trang chủ';
     if (view==='home'){ renderHome(); }
+    if (view==='pick'){ renderPick(); $('#subttl').textContent = 'Chọn bộ đề'; }
   }
   $('#homeBtn').onclick = () => {
     if (S && !S.finished && $('#result').classList.contains('hidden') && S.items.some(x=>x.pick!=null) && !confirm('Thoát bài đang làm?')) return;
-    clearInterval(timerId); S && (S.finished = true); show('home'); window.scrollTo(0,0);
+    const toPick = !$('#home').classList.contains('hidden');
+    clearInterval(timerId); S && (S.finished = true); show(toPick ? 'pick' : 'home'); window.scrollTo(0,0);
   };
   document.addEventListener('keydown', e => {
     if ($('#quiz').classList.contains('hidden')) return;
@@ -532,7 +558,7 @@ details.navd[open] summary{border-bottom:1px solid var(--line)}
     if (e.key==='ArrowLeft') $('#prevBtn').click();
   });
 
-  applySettingsUI(); show('home');
+  applySettingsUI(); show('pick');
 })();
 </script>
 </body>
