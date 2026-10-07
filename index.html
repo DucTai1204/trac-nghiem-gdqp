@@ -75,6 +75,11 @@ select{font:inherit;font-size:14.5px;padding:7px 10px;border-radius:10px;border:
 .lesson .meta{font-size:13px;color:var(--muted);margin-top:2px}
 .lesson .go{color:var(--muted);flex:none}
 .lesson.all .num{background:var(--brand);color:#fff}
+.seg.bank{margin-top:8px;background:var(--card)}
+.seg.bank button{font-size:14px;padding:10px 6px;line-height:1.3}
+.seg.bank button.on{background:var(--brand);color:#fff}
+:root[data-theme="dark"] .seg.bank button.on{color:#0d1a13}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .seg.bank button.on{color:#0d1a13}}
 .best{display:inline-block;margin-left:6px;padding:0 7px;border-radius:99px;background:var(--ok-soft);color:var(--ok);font-size:12px;font-weight:600}
 
 /* quiz */
@@ -162,9 +167,13 @@ details.navd[open] summary{border-bottom:1px solid var(--line)}
 <main class="wrap">
   <!-- HOME -->
   <section id="home">
+    <div class="seg bank" id="bankSeg" role="tablist" aria-label="Chọn bộ đề">
+      <button data-bank="hp2" class="on">Ôn tập HP2</button>
+      <button data-bank="ct">Kiểm tra chính trị HP2</button>
+    </div>
     <div class="card hero">
-      <h1>Câu hỏi ôn tập GDQP Học phần II</h1>
-      <div class="muted">Chọn bài để luyện tập, hoặc thi thử ngẫu nhiên từ toàn bộ ngân hàng câu hỏi.</div>
+      <h1 id="homeTitle">Câu hỏi ôn tập GDQP Học phần II</h1>
+      <div class="muted" id="homeDesc">Chọn bài để luyện tập, hoặc thi thử ngẫu nhiên từ toàn bộ ngân hàng câu hỏi.</div>
       <div class="stats">
         <div class="stat"><b id="stTotal">0</b><span>câu hỏi</span></div>
         <div class="stat"><b id="stLessons">0</b><span>bài học</span></div>
@@ -198,7 +207,7 @@ details.navd[open] summary{border-bottom:1px solid var(--line)}
 
     <h2>Chọn bài</h2>
     <div class="lessons" id="lessonList"></div>
-    <div class="foot">Đáp án lấy theo phần tô màu trong tài liệu gốc. Câu có nhãn “Đáp án tham khảo” là câu tài liệu gốc không đánh dấu.</div>
+    <div class="foot" id="homeFoot">Đáp án lấy theo phần tô màu trong tài liệu gốc. Câu có nhãn “Đáp án tham khảo” là câu tài liệu gốc không đánh dấu.</div>
   </section>
 
   <!-- QUIZ -->
@@ -263,6 +272,7 @@ details.navd[open] summary{border-bottom:1px solid var(--line)}
 </nav>
 
 <script src="data.js"></script>
+<script src="data-ct.js"></script>
 <script>
 (function(){
   const $ = s => document.querySelector(s);
@@ -306,9 +316,28 @@ details.navd[open] summary{border-bottom:1px solid var(--line)}
   $('#shufO').onchange = e => { settings.shufO = e.target.checked; saveSettings(); };
 
   // ----- home
-  const total = QUIZ_DATA.reduce((s,l)=>s+l.questions.length,0);
+  const BANKS = {
+    hp2: {data: QUIZ_DATA, best: 'best', name: 'Ôn tập HP2', sub: 'Ôn tập năm 2022',
+      title: 'Câu hỏi ôn tập GDQP Học phần II',
+      desc: 'Chọn bài để luyện tập, hoặc thi thử ngẫu nhiên từ toàn bộ ngân hàng câu hỏi.',
+      foot: 'Đáp án lấy theo phần tô màu trong tài liệu gốc. Câu có nhãn “Đáp án tham khảo” là câu tài liệu gốc không đánh dấu.'},
+    ct: {data: CT_DATA, best: 'best_ct', name: 'Kiểm tra chính trị HP2', sub: 'Kiểm tra chính trị HP2',
+      title: 'Ôn kiểm tra chính trị HP2 (Đại học)',
+      desc: 'Bộ 70 câu, mỗi bài 10 câu. Luyện từng bài hoặc làm cả bộ ngẫu nhiên.',
+      foot: 'Đáp án theo file “Ôn kiểm tra chính trị HP2 Đại học”.'}
+  };
+  let bankKey = BANKS[store.get('bank','hp2')] ? store.get('bank','hp2') : 'hp2';
+  const bank = () => BANKS[bankKey];
+  document.querySelectorAll('#bankSeg button').forEach(b => b.onclick = () => {
+    bankKey = b.dataset.bank; store.set('bank', bankKey); renderHome();
+  });
   function renderHome(){
-    const best = store.get('best', {});
+    const B = bank(), QUIZ_DATA = B.data;
+    const total = QUIZ_DATA.reduce((s,l)=>s+l.questions.length,0);
+    document.querySelectorAll('#bankSeg button').forEach(b => b.classList.toggle('on', b.dataset.bank===bankKey));
+    $('#homeTitle').textContent = B.title; $('#homeDesc').textContent = B.desc;
+    $('#homeFoot').textContent = B.foot; $('#subttl').textContent = B.sub;
+    const best = store.get(B.best, {});
     $('#stTotal').textContent = total;
     $('#stLessons').textContent = QUIZ_DATA.length;
     $('#stDone').textContent = Object.keys(best).filter(k=>k!=='all').length;
@@ -331,6 +360,7 @@ details.navd[open] summary{border-bottom:1px solid var(--line)}
   const shuffle = a => { a = a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; };
 
   function buildPool(key){
+    const QUIZ_DATA = bank().data;
     if (key==='all') return QUIZ_DATA.flatMap(l => l.questions.map((q,i)=>({q, lesson:l.id, n:i+1})));
     const l = QUIZ_DATA.find(x=>String(x.id)===key);
     return l.questions.map((q,i)=>({q, lesson:l.id, n:i+1}));
@@ -345,10 +375,10 @@ details.navd[open] summary{border-bottom:1px solid var(--line)}
       const order = it.q.o.map((_,i)=>i);
       return Object.assign({}, it, {order: settings.shufO ? shuffle(order) : order, pick:null});
     });
-    S = {key, items, idx:0, mode:settings.mode, startAt:Date.now(), finished:false,
+    S = {key, bank:bankKey, items, idx:0, mode:settings.mode, startAt:Date.now(), finished:false,
          limit: settings.mode==='exam' && +settings.time>0 ? +settings.time*items.length : 0};
     show('quiz');
-    $('#qLesson').textContent = key==='all' ? 'Tất cả các bài' : 'Bài '+key;
+    $('#qLesson').textContent = bank().name+' · '+(key==='all' ? 'Tất cả các bài' : 'Bài '+key);
     $('#navd').open = false;
     clearInterval(timerId);
     if (S.mode==='exam'){ $('#timer').classList.remove('hidden'); tick(); timerId = setInterval(tick, 1000); }
@@ -440,8 +470,8 @@ details.navd[open] summary{border-bottom:1px solid var(--line)}
     const bad = S.items.length-ok-skip;
     const pct = Math.round(ok/S.items.length*100);
     const secs = (Date.now()-S.startAt)/1000;
-    const best = store.get('best', {});
-    if (!S.retry && (best[S.key]==null || pct>best[S.key])){ best[S.key]=pct; store.set('best', best); }
+    const bk = BANKS[S.bank].best, best = store.get(bk, {});
+    if (!S.retry && (best[S.key]==null || pct>best[S.key])){ best[S.key]=pct; store.set(bk, best); }
     show('result'); window.scrollTo(0,0);
     $('#rPct').innerHTML = pct+'%<small>'+ok+'/'+S.items.length+' câu</small>';
     requestAnimationFrame(()=>{ $('#ringArc').style.strokeDashoffset = 402.1*(1-pct/100); });
